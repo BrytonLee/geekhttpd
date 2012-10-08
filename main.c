@@ -9,7 +9,7 @@
 #include	"./config/config.h"
 #include	"./daemon/daemon.h"
 #include	"./net/socket.h"
-#include	"./thread_task/task.h"
+#include	"./thread/task.h"
 
 /*---------------------- main ----------------------------------*/
 int main(int argc, char ** argv)

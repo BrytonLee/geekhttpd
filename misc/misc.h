@@ -12,7 +12,7 @@
  */
 struct read_data {
     void * data;
-    unsigned long len;
+    unsigned int len;
     unsigned short flag; // used for insert data
 };
 

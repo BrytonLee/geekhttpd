@@ -11,7 +11,7 @@
 #include	"../process/process.h"
 
 /* 允许请求头的最大大小 */
-typedef	MAXHEADERLEN	2048	
+#define	MAXHEADERLEN	2048
 
 /* 任务链节点 */
 typedef struct _ghd_task_t{
@@ -22,14 +22,14 @@ typedef struct _ghd_task_t{
 
 /* ==================== Global variables =================== */
 
-ghd_task_t* task_queue_head;
-ghd_task_t* task_queue_tail;
+extern ghd_task_t* task_queue_head;
+extern ghd_task_t* task_queue_tail;
 
 /* 互斥锁与条件变量 */
-pthread_mutex_t		mutex;
-pthread_cond_t		cond;
+extern pthread_mutex_t		mutex;
+extern pthread_cond_t		cond;
 /* POSIX 线程属性 */
-pthread_attr_t		attr;
+extern pthread_attr_t		attr;
 
 /* ====================== Functions ======================= */
 
@@ -43,12 +43,12 @@ ghd_task_t* geekhttpd_task_alloc();
  * Returns:
  * 	no returns
  */
-void geekhttpd_task_free(ghd_task_chain_t *);
+void geekhttpd_task_free(ghd_task_t *);
 
 /* 
  * 添加新任务到任务队列
  */
-int geekhttpd_task_insert(int fd);
+int geekhttpd_task_insert(ghd_task_t * task);
 
 /* 创建线程组 
  * Returns

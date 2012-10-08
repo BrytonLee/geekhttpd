@@ -10,17 +10,17 @@
  * 解析出所请求的方法
  *
  */
-void get_request_method(const char * buffer, enum gh_request_method *method)
+void get_request_method(const char * buffer, ghd_method *method)
 {
     char	*chr;
 
     if (buffer == NULL){ 
 		syslog(LOG_INFO, "[get_request_method]: buffer is NULL");
-		method = UNKNOWN;
+		*method = UNKNOWN;
 		return;
     }
 
-    chr = buffer;
+    chr = (char *)buffer;
     if (*chr == 'G') 
 		*method = GET;
     else if (*chr == 'P' && *(chr + 1) == 'O')
@@ -48,11 +48,11 @@ void get_request_method(const char * buffer, enum gh_request_method *method)
  * 	NULL
  * 	a pointer 
  */
-char * Parse_header_field(enum gh_header_field headerfield, p_read_data dataS)
+char * Parse_header_field(ghd_head_field headerfield, p_read_data dataS)
 {
-    char	* value;
-    char	* src;
-    char	 field[25];
+    char	*value;
+    char	*src;
+    char	field[25];
     int		counter;	
 
     if (dataS == NULL || dataS->len == 0)
@@ -133,7 +133,8 @@ char * Parse_header_field(enum gh_header_field headerfield, p_read_data dataS)
 	    syslog(LOG_INFO, "[Parse_header_field]: Unknow field");
 	    return NULL;
     }
-    if (( src = strcasestr(dataS->data, field)) == NULL) 
+	src = (char *)strcasestr(dataS->data, field);
+    if (NULL == src) 
 		return NULL;
 
     counter = 0;
@@ -611,7 +612,7 @@ void do_cat(int fd, char * request_path)
 /*
  * do_post
  */
-void do_post(int fd, char *buf)
+void do_post(int fd, p_read_data dataS)
 {
     /* TODO: 有时间再实现*/
 }

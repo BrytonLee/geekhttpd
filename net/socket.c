@@ -1,18 +1,23 @@
 #include	"socket.h"
 
+int			g_geekhttpd_listenfd; /* 监听文件描述符 */
+int			g_geekhttpd_epfd;
+struct epoll_event	g_geekhttpd_ev, g_geekhttpd_events[20];
+ghd_socket_t	*g_geekhttpd_socketlist = NULL;
+
 /* 设置非阻塞 */
 int setnonblocking(int fd)
 {
     int		opts;
     
-    opts = fcntl(sock, F_GETFL);
+    opts = fcntl(fd, F_GETFL);
     if ( opts < 0) {
 		syslog(LOG_INFO, "fcntl(sock, F_GETFL)");
 		return -1;
     }
 
     opts = opts | O_NONBLOCK;
-    if ( fcntl(sock, F_SETFL, opts) < 0) {
+    if ( fcntl(fd, F_SETFL, opts) < 0) {
 		syslog(LOG_INFO, "fcntl(sock, F_SETFL, opts)");
 		return -1;
     }
@@ -69,8 +74,9 @@ void geekhttpd_socket_remove(ghd_socket_t *socketnode)
 	if (!socketnode || !g_geekhttpd_socketlist)
 		return;
 
+	/* 这一段的逻辑貌似有点问题*/
 	if (g_geekhttpd_socketlist->sockfd == socketnode->sockfd) 
-		g_geekhttpd_socketlist = g_geekhttpd_socket_list->next;
+		g_geekhttpd_socketlist = g_geekhttpd_socketlist->next;
 
 	for (pnode = g_geekhttpd_socketlist; pnode->next; pnode=pnode->next) {
 		if (pnode->next->sockfd == socketnode->sockfd)
@@ -128,7 +134,7 @@ int geekhttpd_epoll_create(void)
     
     /* 创建epoll 专用文件描述符 */
     g_geekhttpd_epfd = epoll_create(256);
-    if (epfd == -1) {
+    if (g_geekhttpd_epfd == -1) {
 		syslog(LOG_INFO, "epoll_create return -1");
 		return -1;
     }
@@ -176,7 +182,7 @@ int geekhttpd_epoll_wait(void)
 			if (g_geekhttpd_events[i].data.fd == g_geekhttpd_listenfd) {
 				memset(&clientaddr, 0, sizeof(clientaddr));
 				while (1) {
-					connfd = accept(listenfd, (struct sockaddr *)&clientaddr, &clilen);
+					connfd = accept(g_geekhttpd_listenfd, (struct sockaddr *)&clientaddr, &clilen);
 					if (connfd < 0 && errno == EINTR) {
 						continue;
 					}

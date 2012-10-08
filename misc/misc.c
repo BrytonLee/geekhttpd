@@ -182,7 +182,7 @@ int stripspace(char *str)
 	char 	*p;
 	int		len, i;
 
-	if ( NULL == str || NULL == *str)
+	if ( NULL == str || '\0' == *str)
 		goto null_str;
 	else { 
 		
@@ -207,8 +207,8 @@ int stripspace(char *str)
 	}
 	
 null_str:
-	printf("error: str is NULL\n");
-	reutrn 0;
+	syslog(LOG_INFO,"%s error: str is NULL\n", __func__);
+	return 0;
 }
 
 /* 
@@ -220,7 +220,7 @@ int str2int(char * str)
 	int	i, len;
 	char 	c;
 
-	if (NULL == str || NULL == *str) {
+	if (NULL == str || '\0' == *str) {
 		return -1;
 	}
 

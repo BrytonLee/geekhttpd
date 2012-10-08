@@ -192,7 +192,7 @@ void geekhttpd_request_fields_free(ghd_request_fields_t *);
 
 
 /* 解析请求的方法的函数 */
-void get_request_method(const char * buffer, ghd_method method);
+void get_request_method(const char * buffer, ghd_method *method);
 
 /* 
  * Parse Header field 
@@ -201,7 +201,7 @@ void get_request_method(const char * buffer, ghd_method method);
  * 	NULL
  * 	a pointer 
  */
-char * Parse_header_field(ghd_header_field headerfield, p_read_data dataS);
+char * Parse_header_field(ghd_head_field headerfield, p_read_data dataS);
 
 /* 
  * 简单的安全过滤函数
@@ -232,7 +232,7 @@ void Get_Date(char * outstr, int size);
  * Note: 用完之后要 free field_ptr 因为这个函数在内部调用malloc
  * 来申请field_ptr的空间
  */
-void Set_Response_Header_field(enum gh_header_field headerfield, char * field_ptr, char * value);
+void Set_Response_Header_field(ghd_head_field headerfield, char * field_ptr, char * value);
 
 /*
  * gh_response_header
@@ -262,7 +262,7 @@ void do_cat(int fd, char *request_path);
 /*
  * do_post
  */
-void do_post(int fd, char * buf);
+void do_post(int fd, p_read_data dataS);
 
 /*
  * do_not_implement

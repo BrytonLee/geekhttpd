@@ -2,24 +2,33 @@
  * Author: Chengdong.Lee
  * Date: 2010/5/19 17:50
  */
-#include	"./thread_task.h"
+#include	"./task.h"
 #include	"../misc/misc.h"
-#include	"../methods/method.h"
+
+ghd_task_t* task_queue_head;
+ghd_task_t* task_queue_tail;
+
+/* 互斥锁与条件变量 */
+pthread_mutex_t		mutex;
+pthread_cond_t		cond;
+/* POSIX 线程属性 */
+pthread_attr_t		attr;
 
 static void *response_thread(void *args)
 {
     pthread_t		thread_id;
-    int				has_method = 0, sockfd;
+    int				has_method, sockfd;
     unsigned int	n;
-    ghd_task_t*		task // 用于释放task 结构体
+    ghd_task_t*		task;
     ghd_method		method;
     ghd_request_fields_t	Connection_field;
-    //char		read_buf[1024]; // 用于接收数据的buffer 
-    volatile p_read_data		recived_data = NULL; // a pointer
+    volatile p_read_data	received_data = NULL;
 
 
-	//注册线程意外退出回调函数
-    pthread_cleanup_push(pthread_mutex_unlock,&mutex);
+	// 注册线程意外退出回调函数
+	// 强制类型转换，make gcc happy.
+    pthread_cleanup_push((void (*)(void *))pthread_mutex_unlock,
+			(void *)&mutex);
 
     thread_id = pthread_self();
     syslog(LOG_INFO, "Thread ID: %ld", thread_id);
@@ -33,25 +42,38 @@ static void *response_thread(void *args)
 		while(task_queue_head == NULL)
 			pthread_cond_wait(&cond, &mutex);
 
-		sockfd = task_queue_head->node->sockfd;
+		sockfd = task_queue_head->sockfd;
 		task = task_queue_head;
 		task_queue_head = task_queue_head->next;
 		if (task_queue_head == NULL)
 			task_queue_tail = NULL;
-		/* TODO 构思如何处理 */
-		task_free(tmp);
+		geekhttpd_task_free(task);
 
 		pthread_mutex_unlock(&mutex);
 
-		recived_data = alloc_read_data();
-		if (recived_data == NULL) {
-			syslog(LOG_INFO, "Cannot alloc memory for recived_data");
+		received_data = alloc_read_data();
+		if (received_data == NULL) {
+			syslog(LOG_INFO, "Cannot alloc memory for received_data");
 			goto closefd;
 		}
+		received_data->data = malloc(MAXHEADERLEN);
+		if (NULL == received_data->data) {
+			syslog(LOG_INFO, "Cannot alloc meomory for receive buffer");
+			goto closefd;
+		}
+		received_data->len = 0;
 
+		has_method = 0;
 		/* 读取从客户端发来的清求 */
 		while (1) {
-			n = read(fd, read_buf, sizeof(read_buf));
+			/* 重置errno */
+			errno = 0;
+			if ( received_data->len < MAXHEADERLEN)
+				n = read(sockfd, received_data->data + received_data->len,
+						MAXHEADERLEN - received_data->len);
+			else
+				break;
+
 			if (n < 0) {
 				if ( errno == EINTR) {
 				continue;
@@ -62,70 +84,75 @@ static void *response_thread(void *args)
 			} else if (n == 0) {
 				break;
 			} else {
-				if ( errno == EAGAIN) 
-				break;
-				if (!has_method){
-					get_request_method(read_buf, &method);
-				has_method = 1;
-					if (method == POST) 
-					do_post(fd, read_buf);
+				if ( errno == EAGAIN ) 
+					break;
+				received_data->len += n;
+				if (!has_method && received_data->len > 7){
+					get_request_method(received_data->data, &method);
+					has_method = 1;
 				}
-				/*
-				 * 因为是GET 或 HEAD 其它方法
-				 * 去掉多余的数据 */
-				if (recived_data->len >= MAXHEADERLEN)
-				continue;
-				
-				if (insert_read_data(&recived_data, read_buf, n) == -1) {
-				syslog(LOG_INFO, "Cannot insert recived data to recived_data");
-				goto closefd;
-				}
-			}
-		} /* while(1) */
 
-		thread_id = pthread_self();
+#if 0
+				/* GET 或 HEAD 其它方法检查数据的合法性 */
+				if (received_data->len == MAXHEADERLEN) {
+					if ( (received_data->data[MAXHEADERLEN - 3] & 
+								received_data->data[MAXHEADERLEN - 2] &
+								received_data->data[MAXHEADERLEN - 1] &
+								received_data->data[MAXHEADERLEN - 0]) != 
+							0x0d0a0d0a)	
+					continue;
+				}
+				
+				if (insert_read_data(&received_data, read_buf, n) == -1) {
+					syslog(LOG_INFO, "Cannot insert recived data to recived_data");
+					goto closefd;
+				}
+#endif
+			}
+		} 
+
 		syslog(LOG_INFO, "Thread ID: %ld", thread_id);
-		syslog(LOG_INFO, "[Request] Size %d, Content: %s",  recived_data->len, \
-			recived_data->data);
+		syslog(LOG_INFO, "[Request] Size %d, Content: %s",  received_data->len, \
+			(char *)received_data->data);
 
 		/* 
 		 * 根据方法响应请求，向浏览器发送消息和数据
 		 */
 		switch (method) {
 			case GET:
-				do_get(fd, recived_data);
-			break;
+				do_get(sockfd, received_data);
+				break;
+			case POST:
+				do_post(sockfd, received_data);
+				break;
 			case HEAD:
-			do_head(fd, recived_data);
-			break;
+				do_head(sockfd, received_data);
+				break;
 			case PUT:
 			case DELETE:
 			case TRACE:
 			case CONNECT:
 			case OPTIONS:
-			do_not_implement(fd);
-			break;
+				do_not_implement(sockfd);
+				break;
 			case UNKNOWN:
-			/* send 405 */
-			do_unknown_method(fd);
-			break;
+				/* send 405 */
+				do_unknown_method(sockfd);
+				break;
 			default:
-			break;
+				break;
 		}
 		/* TODO:
 		 * Connection: Keep-Alive 
 		 * 没有处理
 		 */
 		
-		/* 关掉socket */
-	closefd: close(fd);
+closefd:
+		close(sockfd);
 		/* free read_data */
-		free_read_data(recived_data);
-		recived_data = NULL;
+		free_read_data(received_data);
+		received_data = NULL;
 		syslog(LOG_INFO, "===============================================");
-
-		/* 重置errno */
-		errno = 0;
     }
     pthread_cleanup_pop(0);
 }
@@ -211,7 +238,7 @@ int geekhttpd_task_insert(ghd_task_t * task)
 int geekhttpd_create_thread_pool()
 {
 	/* 动态数组， 在某些编译器上通不过 */
-    pthread_t	threads[GEEKHTTP_PTHREAD_NUM];
+    pthread_t	threads[g_geekhttpd_pthread_num];
     int		i;	// for index
     int		res;
 
@@ -227,7 +254,7 @@ int geekhttpd_create_thread_pool()
     /* 设定创建线程时为detach state */
     pthread_attr_setdetachstate(&attr, PTHREAD_CREATE_DETACHED);
 
-    for (i = 0; i < GEEKHTTP_PTHREAD_NUM; i++) { 
+    for (i = 0; i < g_geekhttpd_pthread_num; i++) { 
 		res = pthread_create(&threads[i], &attr, response_thread, NULL);
 		if (res != 0) {
 			syslog(LOG_INFO, "gh_create_thread_pool: Cannot create threads");

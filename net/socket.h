@@ -31,10 +31,10 @@ typedef struct _ghd_socket_t {
 
 
 /* =================== Global variables ==================== */
-int			g_geekhttpd_listenfd; /* 监听文件描述符 */
-int			g_geekhttpd_epfd;
-struct epoll_event	g_geekhttpd_ev, g_geekhttpd_events[20];
-ghd_socket_t	*g_geekhttpd_socketlist = NULL;
+extern int			g_geekhttpd_listenfd; /* 监听文件描述符 */
+extern int			g_geekhttpd_epfd;
+extern struct epoll_event	g_geekhttpd_ev, g_geekhttpd_events[20];
+extern ghd_socket_t	*g_geekhttpd_socketlist;
 
 
 /* ================== Functions ========================= */
