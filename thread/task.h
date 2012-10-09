@@ -16,7 +16,7 @@
 /* 任务链节点 */
 typedef struct _ghd_task_t{
 	int			sockfd;
-	void		*sockinfo;
+//	void		*sockinfo;
 	struct _ghd_task_t	*next;
 }ghd_task_t;
 

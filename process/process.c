@@ -175,14 +175,17 @@ void arg_filter(char * arg)
 		if (strncmp(src, "/../", 4) == 0) 
 			src += 3;
 		else if (strncmp(src, "//", 2) == 0)
-			src ++;
+			src++;
 		else 
-			*dest ++ = *src++;
+			*dest++ = *src++;
     }
     *dest = '\0';
 
-    if ( *arg == '/')
-		strcpy(arg, arg + 1);
+    if ( *arg == '/'){
+		int len = strlen(arg) - 1;
+		memmove(arg, arg + 1, len);
+		*(arg + len) = '\0';
+	}
     if (arg[0] == '\0' || strcmp(arg, "./") == 0 || strcmp(arg, "./..") == 0)
 		strcpy(arg, ".");
 }
@@ -320,43 +323,51 @@ int gh_response_header(ptr_response_buffer buf, int code, char *content_type)
 /* 
  * do_get
  */
-void do_get(int fd, p_read_data dataS)
+void do_get(int sockfd, p_read_data dataS)
 {
-    char	*request_path; // 请求的路径
+    char	*request_uri; // 请求的路径
     struct stat	info;
+	int		has_arg = 0;	// GET parameters
 
     if (dataS == NULL || dataS->data == NULL || dataS->len == 0) {
 		syslog(LOG_INFO, "[do_get]: dataS is NULL");
 		return;
     }
 
-    /* 先做安全过滤 */
-    arg_filter(dataS->data + strlen("GET "));
-    request_path = dataS->data + strlen("GET ");
-    syslog(LOG_INFO, "[do_get]: request path: %s", request_path);
+	do {
+		/* TODO A HTTP protocol parser is required !!! */
+		char *term_pos = NULL;
+		request_uri = dataS->data + strlen("GET ");
+		term_pos = strchr(request_uri, '?');
+		if (!term_pos) {
+			term_pos = strchr(request_uri, ' ');
+			*term_pos = '\0';
+		} else {
+			has_arg = 1;
+		}
+	
+	}while(0);
+    syslog(LOG_INFO, "[do_get]: request URI: %s", request_uri);
 
-    /* 如果路径里包含了'?'号，交给cgi来处理*/
-    if ((strchr(request_path, '?')) != NULL)
-	    do_cgi(fd, dataS);
-    else if ((strcmp(request_path, ".")) == 0){
+	/* simple security filter */
+    arg_filter(request_uri);
+
+    if (has_arg)
+	    do_cgi(sockfd, dataS);
+    else if ((strcmp(request_uri, ".")) == 0){
 		if ((stat("index.html", &info)) != -1)
-			do_cat(fd, "index.html");
+			do_cat(sockfd, "index.html");
 		else if ((stat("index.htm", &info)) != -1)
-			do_cat(fd, "index.htm");
+			do_cat(sockfd, "index.htm");
 		else
-			do_err_resp(fd,403);
-    }
-    /* 如果不存在，返回404 */
-    else if ((stat(request_path, &info)) == -1){
-		syslog(LOG_INFO, "[stat]: path %s", request_path);
-		do_err_resp(fd,404);
-    }
-
-    /* 如果是个目录 */
-    else if(isadir(request_path))
-		do_ls(fd, request_path);
+			do_err_resp(sockfd,403);
+    } else if ((stat(request_uri, &info)) == -1){
+		syslog(LOG_INFO, "[stat]: path %s err: %s", request_uri, strerror(errno));
+		do_err_resp(sockfd,404);
+    } else if(isadir(request_uri))
+		do_ls(sockfd, request_uri);
     else
-		do_cat(fd, request_path);
+		do_cat(sockfd, request_uri);
 }
 
 /* 
@@ -447,7 +458,7 @@ void do_ls(int fd, char *request_path)
     DIR		*dirptr;
     struct dirent	*direntp;
     int		code;
-    char	*content_type = "text/plain";
+    char	*content_type = "text/html";
     ptr_response_buffer buf;
     int			in_size;
     char	*ptr;
@@ -470,8 +481,9 @@ void do_ls(int fd, char *request_path)
     if (res != 2)
 		syslog(LOG_INFO, "[do_ls] insert_resp_buf");
 
-    ptr = "Listing of Directory\n";
-    in_size = strlen("Lisiting of Directory\n");
+    ptr = "<html><head><title>Listing of Directory</title></head> \
+		   <body><h1>Listing of Directory</h1>";
+    in_size = strlen(ptr);
     while ((res = insert_resp_buf(buf, ptr, in_size)) != -1) {
 		if (res == 0 || res < in_size) {
 			while (write(fd, buf->data, buf->counter) == -1)
@@ -521,6 +533,8 @@ void do_ls(int fd, char *request_path)
 			continue;
 		closedir(dirptr);
     }
+	ptr = "</body></html>";
+	write(fd, ptr, strlen(ptr));
     buf->counter = 0;
     resp_buf_free(buf);
 }
@@ -597,14 +611,14 @@ void do_cat(int fd, char * request_path)
 				buf->counter = 0;
 			}
 			if (res == in_size)
-			break;
+				break;
 			in_size -= res;
 			ptr += res;
 		}
     }
     while (write(fd, buf->data, buf->counter) == -1)
-	if (errno == EINTR)
-	    continue;
+		if (errno == EINTR)
+			continue;
     buf->counter = 0;
     resp_buf_free(buf);
 }

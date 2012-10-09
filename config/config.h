@@ -16,14 +16,14 @@
 
 /* geekhttpd 服务器所需要的启动信息*/
 
-int		g_geekhttpd_port;			/* 所使用的端口号 */
-char* 	g_geekhttpd_doc_path;		/* html cgi 文件所在的路径 */
-int		g_geekhttpd_pthread_num;	/* 需要使用的线程数，跟据需要可以调整服务器的性能*/
+extern int	g_geekhttpd_port;			/* 所使用的端口号 */
+extern char	*g_geekhttpd_doc_path;		/* html cgi 文件所在的路径 */
+extern int	g_geekhttpd_pthread_num;	/* 需要使用的线程数，跟据需要可以调整服务器的性能*/
 
 /* geekhttpd 默认配置 */
-#define		GEEKHTTPD_DEFAULT_CONFIG_PATH	"./config/geekhttp.conf"
+#define		GEEKHTTPD_DEFAULT_CONFIG_PATH	"./config/geekhttpd.conf"
 #define		GEEKHTTPD_DEFAULT_PORT			8080
-#define		GEEKHTTPD_DEFAULT_DOC_PATH		"/opt/geekhttp/doc"
+#define		GEEKHTTPD_DEFAULT_DOC_PATH		"./doc"
 #define		GEEKHTTPD_DEFAULT_PTHREAD_NUM	3
 
 extern int	geekhttpd_default_cfg(void);

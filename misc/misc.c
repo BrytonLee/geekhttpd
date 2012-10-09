@@ -5,6 +5,8 @@
 #include	<sys/syslog.h>
 #include	"misc.h"
 
+#define MAXHEADERLEN    2048
+
 /* 
  * alloc_read_data
  * Returns:
@@ -18,7 +20,12 @@ alloc_read_data()
     dataS = (p_read_data) malloc(sizeof (struct read_data));
     if (dataS == NULL) 
 		return NULL;
-    dataS->data = NULL;
+	dataS->data = malloc(MAXHEADERLEN);
+	if (NULL == dataS->data) {
+		free(dataS);
+		return NULL;
+	}
+	memset(dataS->data, '\0', MAXHEADERLEN);
     dataS->len = 0;
     dataS->flag = 0;
 
@@ -187,9 +194,10 @@ int stripspace(char *str)
 	else { 
 		
 		len = strlen(str);
+		i = 0;
 
 		/* 去掉字符串的头空格 */
-		for (p = str; isspace(*p) && i < len; p++) 
+		for (p = str; isspace(*p) && i < len; p++, i++) 
 			*p = '\0';
 
 		/* 去掉字符串的尾空格 */

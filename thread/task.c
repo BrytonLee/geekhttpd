@@ -56,12 +56,6 @@ static void *response_thread(void *args)
 			syslog(LOG_INFO, "Cannot alloc memory for received_data");
 			goto closefd;
 		}
-		received_data->data = malloc(MAXHEADERLEN);
-		if (NULL == received_data->data) {
-			syslog(LOG_INFO, "Cannot alloc meomory for receive buffer");
-			goto closefd;
-		}
-		received_data->len = 0;
 
 		has_method = 0;
 		/* 读取从客户端发来的清求 */
@@ -76,9 +70,9 @@ static void *response_thread(void *args)
 
 			if (n < 0) {
 				if ( errno == EINTR) {
-				continue;
+					continue;
 				}
-				/* 有问题链接的处理 */
+				/* 处理有问题的链接 */
 				syslog(LOG_INFO, "brower closed connection");
 				goto closefd;
 			} else if (n == 0) {
@@ -91,27 +85,9 @@ static void *response_thread(void *args)
 					get_request_method(received_data->data, &method);
 					has_method = 1;
 				}
-
-#if 0
-				/* GET 或 HEAD 其它方法检查数据的合法性 */
-				if (received_data->len == MAXHEADERLEN) {
-					if ( (received_data->data[MAXHEADERLEN - 3] & 
-								received_data->data[MAXHEADERLEN - 2] &
-								received_data->data[MAXHEADERLEN - 1] &
-								received_data->data[MAXHEADERLEN - 0]) != 
-							0x0d0a0d0a)	
-					continue;
-				}
-				
-				if (insert_read_data(&received_data, read_buf, n) == -1) {
-					syslog(LOG_INFO, "Cannot insert recived data to recived_data");
-					goto closefd;
-				}
-#endif
 			}
 		} 
 
-		syslog(LOG_INFO, "Thread ID: %ld", thread_id);
 		syslog(LOG_INFO, "[Request] Size %d, Content: %s",  received_data->len, \
 			(char *)received_data->data);
 
@@ -152,7 +128,6 @@ closefd:
 		/* free read_data */
 		free_read_data(received_data);
 		received_data = NULL;
-		syslog(LOG_INFO, "===============================================");
     }
     pthread_cleanup_pop(0);
 }

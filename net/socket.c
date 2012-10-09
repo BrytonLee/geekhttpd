@@ -181,7 +181,9 @@ int geekhttpd_epoll_wait(void)
 		for (i = 0; i < nfds; i++) {
 			if (g_geekhttpd_events[i].data.fd == g_geekhttpd_listenfd) {
 				memset(&clientaddr, 0, sizeof(clientaddr));
+				clilen = 0;
 				while (1) {
+					errno = 0;
 					connfd = accept(g_geekhttpd_listenfd, (struct sockaddr *)&clientaddr, &clilen);
 					if (connfd < 0 && errno == EINTR) {
 						continue;
@@ -189,7 +191,7 @@ int geekhttpd_epoll_wait(void)
 					break;
 				}
 				if (connfd < 0) {
-					syslog(LOG_INFO, "accept error");
+					syslog(LOG_INFO, "accept error: %s", strerror(errno));
 					continue;
 				}
 				res = setnonblocking(connfd);
@@ -202,10 +204,10 @@ int geekhttpd_epoll_wait(void)
 					continue;
 				}
 
-				syslog(LOG_INFO, "===============================================");
 				clientaddr_str = inet_ntoa(clientaddr.sin_addr);
 				syslog(LOG_INFO, "Connect from: %s", clientaddr_str);
 
+#if 0
 				/* 加入到socketlist */
 				newsocket = geekhttpd_socket_alloc();
 				if ( NULL == newsocket ) {
@@ -218,6 +220,7 @@ int geekhttpd_epoll_wait(void)
 				newsocket->sockfd = connfd;
 				geekhttpd_socket_insert(newsocket);
 
+#endif
 				/* 添加到任务队列 */
 				newtask = geekhttpd_task_alloc();
 				if (NULL == newtask) {
@@ -230,7 +233,9 @@ int geekhttpd_epoll_wait(void)
 					}
 				}
 				newtask->sockfd = connfd;
+#if 0
 				newtask->sockinfo = (void *)newsocket;
+#endif
 				geekhttpd_task_insert(newtask);
 				
 				/* 注册已连接文件描述符 */

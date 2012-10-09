@@ -8,6 +8,12 @@
 #include	"config.h"
 #include	"../misc/misc.h"
 
+/* geekhttpd 服务器所需要的启动信息*/
+
+int		g_geekhttpd_port;			/* 所使用的端口号 */
+char	*g_geekhttpd_doc_path;		/* html cgi 文件所在的路径 */
+int		g_geekhttpd_pthread_num;	/* 需要使用的线程数，跟据需要可以调整服务器的性能*/
+
 /* 解析从配置文件中读取到的信息并写入配置项
  * returns:
  * 0 ok
@@ -113,7 +119,7 @@ int	geekhttpd_read_config(const char *path)
 			continue;
 		}
 		if (parse(buffer)){
-			printf("parse error\n");
+			printf("configure file parse error\n");
 			return reval; /* -1 */
 		}
 	}
